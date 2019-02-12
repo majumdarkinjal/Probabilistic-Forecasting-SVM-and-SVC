@@ -1,0 +1,393 @@
+---
+title: "Assignment 3 BAIT 509- Kinjal Majumdar"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r Load packages}
+rm(list=ls())
+library("ggplot2")
+library("tidyverse")
+library("Lahman")
+library("dplyr")
+library("quantreg")
+library("Metrics") # Used to calculate Mean Absolute Error
+library("knitr")
+```
+
+## Question 1
+
+####Part 1
+
+```{r Read Dataset}
+diamonds <- ggplot2::diamonds
+print(str(diamonds))
+```
+
+
+```{r}
+#Plot the null model in histogram and a PDF
+ggplot(diamonds, aes(x = diamonds$x)) + geom_histogram()
+
+```
+
+```{r}
+#Density Plot
+ggplot(diamonds, aes(x = diamonds$x))+ geom_density()
+```
+
+```{r}
+#Probabailistic forecast for two predictors
+ 
+meanX <- mean(diamonds$x)
+sdX <- sd(diamonds$x)
+
+meanY <- mean(diamonds$y)
+sdY <- sd(diamonds$y)
+
+meanZ <- mean(diamonds$z)
+sdZ <- sd(diamonds$z)
+
+#Scaling 
+diamonds$Xscale = (diamonds$x - meanX)/sdX
+diamonds$Yscale = (diamonds$y - meanY)/sdY
+diamonds$Zscale = (diamonds$z - meanZ)/sdZ
+
+# Diamond 1
+X0scale <- (4 - meanX)/sdX
+Y0scale <- (4 - meanY)/sdY
+Z0scale <- (3 - meanZ)/sdZ
+
+#Euclidian Distance
+diamonds$dist <- sqrt((diamonds$Xscale - X0scale)^2 + 
+				   (diamonds$Yscale - Y0scale)^2 + (diamonds$Zscale - Z0scale)^2) 
+print(head(diamonds$dist))
+
+```
+```{r}
+relevant.value <- dplyr::arrange(diamonds, dist) %>% filter(dist<0.5)%>%.[["cut"]]
+print(relevant.value)
+```
+
+```{r}
+#Probability Density plot for Diamond 1
+qplot(relevant.value, geom = "density")
+```
+```{r}
+#Probability Barplot for Diamond 1
+qplot(relevant.value, geom="bar")
+```
+
+
+```{r}
+#Calculating mode
+common <- unique(relevant.value)
+common[which.max(tabulate(match(relevant.value, common)))]
+
+print(common[which.max(tabulate(match(relevant.value, common)))])
+```
+```{r}
+#Diamond 2
+X0scale <- (6 - meanX)/sdX
+Y0scale <- (6 - meanY)/sdY
+Z0scale <- (4 - meanZ)/sdZ
+
+#Euclidian Distance
+diamonds$dist2 <- sqrt((diamonds$Xscale - X0scale)^2 + 
+				   (diamonds$Yscale - Y0scale)^2 + (diamonds$Zscale - Z0scale)^2) 
+
+print(head(diamonds$dist2))
+```
+
+```{r}
+relevant.2 <- dplyr::arrange(diamonds, dist2) %>%  filter(dist2 < 0.5) %>% .[["cut"]]
+print(head(relevant.2))
+
+```
+```{r}
+#Calculating mode
+common2 <- unique(relevant.2)
+common2[which.max(tabulate(match(relevant.2, common2)))]
+
+print(common2[which.max(tabulate(match(relevant.2, common2)))])
+```
+```{r}
+#Probability Density plot for Diamond 2 
+qplot(relevant.2, geom="density")
+```
+
+```{r}
+#Probability Bar chart for Diamond 2
+qplot(relevant.2, geom="bar")
+```
+
+
+#### Part 2
+
+Based on the models we've run above, we would choose Diamond number 2, since there are higher probabilities of it being of a 'very good' variety. Yes. Creating these forecasts have been very useful in determining how high the probability of obtaining a certain outcome is, in this case choosing between diamonds 1 and 2. The likelihood of obtaining a very good diamond 2 is far higher, which is something that the classifier helps us determine, thus proving its use.
+
+#### Part 3
+
+Pros and Cons
+
+- The probabiity of diamond 1 being ‘Fair’ is the highest in comparison to the other cut qualities 'Good' and 'Very Good'.
+
+- The probability of diamond 2 being ‘Very Good’ is the highest, therefore it is highly likely that diamond 2 will be in the ‘Very Good’, ‘Good’ and ‘Premium' categories.
+
+In conclusion, diamond 2 has a higher probabilistic chance of having a better grade than
+diamond 1.
+
+
+## Question 2
+
+#### Part A
+```{r}
+
+# Read Data
+auto_data <- read.csv('https://raw.githubusercontent.com/vincenzocoia/BAIT509/master/assessments/assignment3/data/auto_data.csv') 
+
+```
+
+```{r}
+str(mtcars)
+```
+```{r}
+head(mtcars)
+```
+
+```{r}
+fit_rq <- rq(mpg ~ wt, data=mtcars, tau=c(0.25, 0.5, 0.75))
+```
+
+```{r}
+ggplot(mtcars, aes(wt, mpg)) +
+    geom_point(alpha=0.3, colour="red") +
+    geom_quantile(colour="black") +
+    theme_bw() +
+    labs(y="Fuel Efficiency/Mpg(y)",
+         x="Weight of Car (x)")
+```
+```{r}
+predict(fit_rq, newdata=data.frame(wt=3.5))
+print(predict(fit_rq, newdata=data.frame(wt=3.5)))
+```
+
+```{r}
+predict(fit_rq, newdata=data.frame(wt=1.5))
+print(predict(fit_rq, newdata=data.frame(wt=1.5)))
+```
+
+
+
+As we can see, the estimates obtained for mpg in the 0.75 quantile of wt = 3.5 is 20.23892 There is therefore a 75% chance of mpg being less than 20.23892 and a 25% chance of being greater than this value.
+
+
+
+
+#### Part B
+
+
+
+##### Part 1 & 2
+
+```{r}
+#Create Training and Test sets
+trn <- auto_data
+tst <- mtcars
+
+str(trn)
+str(tst)
+
+tst$weight <- 1000*tst$wt 
+head(tst$weight)
+```
+
+```{r}
+# Fit the 0.5-quantile of mpg using the “weight” variable as the predictor. Fit a linear model and a quadratic model
+
+linear_rq <- rq(mpg ~ weight, data=trn, tau=0.5)
+quadratic_rq <- rq(mpg ~ poly(weight, 2), data=trn, tau=0.5)
+
+```
+
+```{r}
+# Plot the two quantile regression curves
+
+ggplot(trn, aes(weight, mpg)) +
+    geom_point(alpha=0.3, colour="orange") +
+    geom_quantile(colour="blue", quantiles=0.5) +
+  geom_quantile(quantiles=0.5, formula=y ~ poly(x, 2), colour="red") +
+    theme_bw() +
+    labs(y="Fuel Efficiency/Mpg(Y)",
+         x="Weight of the car (X)")
+```
+
+
+##### Part 3 
+
+Since we are predicting the median, the mean absolute error would be the best method of calculating the error. We do this by taking the absolute value. 
+
+
+
+
+##### Part 4
+
+##### For Linear Model
+```{r}
+#Calculate the linear predictions
+predictions_linear <- predict(linear_rq, newdata=tst)
+```
+
+```{r}
+#Find the linear Mean Absolute Error for the 0.5 quantile
+errors_linear <- mae(tst$mpg, predictions_linear)
+print(errors_linear)
+```
+
+##### For Quadratic Model
+
+
+```{r}
+#Calculate quadratic predictions
+predictions_quadratic <- predict(quadratic_rq, newdata=tst)
+```
+
+```{r}
+#Find the quadratic Mean Absolute Error for the 0.5 quantile
+errors_quadratic <- mae(tst$mpg, predictions_quadratic)
+print(errors_quadratic)
+```
+
+
+##### Part 5
+
+From the plots we can discern that the quadratic quantile model fits the data better than the linear quantile model. From a visual inspection we can conclude that the errors in the quadratic case will be far lower, as the data fit is significantly better.
+
+When we compare the Mean Absolute Errors we see that the MAE for the linear model is higher (3.13) in comparison to the quadratic model(2.68). 
+
+Therefore the quadratic quantile model is a better fit, and classifier than the linear quantile model on the accounts of the plot and the MAE.
+
+
+
+#Question 3
+
+ISLR Textbook 
+
+
+```{r}
+# Question 1a
+
+X1=seq(-1,1,0.1)
+{plot(X1,1+3*X1,xlab='X1',ylab='X2',type='l',xlim=c(-1,1),ylim=c(-1,4), pch=16)
+
+
+for(i in seq(-1,1,length.out = 25)){
+  pts=data.frame(rep(i,25),seq(-1,4,length.out = 25))
+  points(pts,col=ifelse(1+3*pts[,1]-pts[,2]>0,'red','purple'))
+}
+}
+
+
+```
+
+
+#### Part A
+
+```{r}
+
+
+#We are given n = 7 observations in p = 2 dimensions. For each observation, there is an associated class label
+
+X1=c(3,2,4,1,2,4,4)
+X2=c(4,2,4,4,1,3,1)
+Y=c('red','red','red','red','blue','blue','blue')
+
+mydata=data.frame(X1=c(3,2,4,1,2,4,4),X2=c(4,2,4,4,1,3,1),Y=c('red','red','red','red','blue','blue','blue'))
+
+print(mydata)
+```
+
+
+
+```{r}
+#Plot the data points
+{plot(mydata[,c(1,2)],col=mydata$Y, pch=16)}
+```
+
+
+
+
+We choose the hyperplane so that the observations closest to the hyperplane are as far away as possible. This is done to minimize the chance that a new observation will be misclassified. In this case, given how points are distributed in the plane, the hyperplane would pass through the points (2, 1.5) and (4, 3.5) where:-
+(2, 1.5) is the mid point for (2, 1) and (2, 2)
+(4, 3.5) is the mid point for the points (4, 3) and (4, 4)
+We have chosen the midpoints for these points as each point pair [(2,2) and (2,1)], [(4,3) and (4,4)] from a different color group. Using these two points we get the equation of the line as 0.5 - X1 + X2 =0
+
+
+
+#### Part B
+
+```{r}
+
+
+# Plot line -0.5+X1=X2
+{plot(mydata[,c(1,2)],col=c('red','red','red','red','blue','blue','blue'), pch=16, main="Hyperplane with margins")
+abline(-0.5,1)}                   
+```
+
+
+#### Part C
+
+Let us define the regions for classification. 
+
+If 
+-(0.5) + X1 - X2 > 0 then Blue
+
+elseif
+
+-(0.5) + X1 -X2 <= 0 then Red
+
+From the above, I would classify to all points as Red if 0.5- X1 + X2 > 0, and classify to Blue otherwise(when 0.5- X1 + X2 <= 0). Here β0 = 0.5, β1 = -1, β2 = 1 for the standard line equation β0 +β1X1 +β2X2
+
+
+#### Part D
+
+We calculate the margin since the margin is the minimum distance from the support vectors. Therefore in order to find the margin we need to find the minimum of the distances from the support vectors.
+
+```{r}
+#Minimum distance/Margin 
+min(abs(mydata[,1]-mydata[,2]-0.5)) 
+
+print(min(abs(mydata[,1]-mydata[,2]-0.5)))
+```
+
+
+The margin lines pass through the points (2,2) and (4,4) in the upper region and the points (2,1) and (4,3) in the lower. This is because the points are located equidistant from the hyperplane. 
+
+```{r}
+#Plot the lines to denote the margin/window
+{plot(mydata[,c(1,2)],col=c('red','red','red','red','blue','blue','blue'), pch=16)
+abline(-0.5,1)                       # -0.5+X1-X2=0
+
+abline(0,1,lty=2) # Upper Boundary
+abline(-1,1,lty=2) }# Lower Boundary
+```
+
+#### Part E
+
+```{r}
+{plot(mydata[,c(1,2)],col=c('red','red','red','red','blue','blue','blue'), pch=16)
+abline(-0.5,1)                       # -0.5+X1-X2=0
+
+abline(0,1,lty=2) # Upper Boundary
+abline(-1,1,lty=2) # Lower Boundary
+
+arrows(2, 1, 2, 1.5)
+arrows(2, 2, 2, 1.5)
+arrows(4, 4, 4, 3.5)
+arrows(4, 3, 4, 3.5)}
+```
+
+#### Part F
+
+Movement of the point at (4,1) would not effect on the maximum margin width as it is significantly outside, and is not one of the support vectors. Moving it significantly in the y-direction may influence the margin width, but not if the movement is slight. As a result, the hyperplane which is defined by the closest points is not impacted.
